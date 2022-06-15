@@ -1,5 +1,10 @@
-# mnist_m1_mps
-Training MNIST on M1 GPU using MPS backend. 
+# DECORE
+Deep Compression with Reinforcement Learning. (arxiv)[https://arxiv.org/abs/2106.06091]
 
-The nightly build of PyTorch adds support for Metal Performance Shaders. 
-I think the MPS backend is enabled by default even when using device="cpu" in PyTorch. 
+This is a PyTorch implementation of the DECORE compression algorithm. 
+
+Milestones:
+1. Fine-tune a CNN style network on a simple dataset. 
+2. Implement a wrapper over the custom structured pruning flow in PyTorch. 
+3. Add REINFORCE based RL agents before CNN and Linear layers to decide how to prune. 
+4. Profit. 
