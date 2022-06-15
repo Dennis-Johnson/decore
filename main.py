@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn.utils.prune as prune
 import matplotlib.pyplot as plt
+from decore import decore_structured
 from dataloaders import get_dataloaders
 from CNN import CNN
 
@@ -46,15 +47,17 @@ if plot_data:
 
 network   = torch.load("./models/baseline_98.pt")
 
-# Prune multiple modules. 
+# Prune channels randomly
 for name, module in network.named_modules():
-    # prune 20% of connections in all 2D-conv layers
+    # prune 40% of connections in all 2D convolutional layers
     if isinstance(module, torch.nn.Conv2d):
-        prune.ln_structured(module, name="weight", amount=0.2, n=2, dim=0)
-    # prune 40% of connections in all linear layers
-    elif isinstance(module, torch.nn.Linear):
-        prune.ln_structured(module, name="weight", amount=0.2, n=2, dim=0)
-print("Pruning complete.")
+        decore_structured(module, name="weight")
+        print( "Sparsity in {}: {:.2f}%".format(name, 
+          100. * float(torch.sum(module.weight == 0))
+        / float(module.weight.nelement())
+      )
+)
+print("Pruning Conv2D complete.")
 
 optimizer = optim.SGD(network.parameters(), lr=learning_rate,
                       momentum=momentum)
@@ -81,7 +84,7 @@ def train(epoch):
 
       train_losses.append(loss.item())
       train_counter.append((batch_idx*64) + ((epoch-1)*len(train_loader.dataset)))
-  torch.save(network.state_dict(), './results/model.pth')
+  torch.save(network.state_dict(),   './results/model.pth')
   torch.save(optimizer.state_dict(), './results/optimizer.pth')
 
 def test():
@@ -106,18 +109,10 @@ def test():
 training_stats = []
 
 # Train and benchmark M1 CPU vs GPU
-startEndtoEnd = time.perf_counter()
 test()
 for epoch in range(1, n_epochs + 1):
-    startEpoch = time.perf_counter()
     train(epoch)
-    training_stats.append(time.perf_counter() - startEpoch)
-
     test()
-
-print(f"End-to-end training MNIST time: {time.perf_counter() - startEndtoEnd}s")
-print(f"Timings: {training_stats}\nAvg: {sum(training_stats) / n_epochs}\nMin: {min(training_stats)}\nMax: {max(training_stats)}")
-
 
 if plot_data: 
   fig = plt.figure()
@@ -127,3 +122,8 @@ if plot_data:
   plt.xlabel('number of training examples seen')
   plt.ylabel('negative log likelihood loss')
   plt.show()
+
+
+print("\nNew Module Named Buffers and Parameters")
+print(dict(network.named_buffers()).keys())  # to verify that all masks exist
+print(dict(network.named_parameters()).keys())  # to verify that all masks exist
