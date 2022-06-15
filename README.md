@@ -1,5 +1,5 @@
 # DECORE
-Deep Compression with Reinforcement Learning. (arxiv)[https://arxiv.org/abs/2106.06091]
+Deep Compression with Reinforcement Learning. [arxiv](https://arxiv.org/abs/2106.06091)
 
 This is a PyTorch implementation of the DECORE compression algorithm. 
 
