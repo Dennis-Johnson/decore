@@ -2,13 +2,14 @@ import time
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+import torch.nn.utils.prune as prune
 import matplotlib.pyplot as plt
 from dataloaders import get_dataloaders
 from CNN import CNN
 
 # Parameters for the CNN
-n_epochs         = 3
-batch_size_train = 1
+n_epochs         = 1
+batch_size_train = 64
 batch_size_test  = 1000
 learning_rate    = 0.01
 momentum         = 0.5
@@ -43,7 +44,18 @@ if plot_data:
     plt.yticks([])
   plt.show()
 
-network = CNN()
+network   = torch.load("./models/baseline_98.pt")
+
+# Prune multiple modules. 
+for name, module in network.named_modules():
+    # prune 20% of connections in all 2D-conv layers
+    if isinstance(module, torch.nn.Conv2d):
+        prune.ln_structured(module, name="weight", amount=0.2, n=2, dim=0)
+    # prune 40% of connections in all linear layers
+    elif isinstance(module, torch.nn.Linear):
+        prune.ln_structured(module, name="weight", amount=0.2, n=2, dim=0)
+print("Pruning complete.")
+
 optimizer = optim.SGD(network.parameters(), lr=learning_rate,
                       momentum=momentum)
 
@@ -75,15 +87,18 @@ def train(epoch):
 def test():
   network.eval()
   test_loss = 0
-  correct = 0
+  correct   = 0
+
   with torch.no_grad():
     for data, target in test_loader:
-      output = network(data)
+      output     = network(data)
       test_loss += F.nll_loss(output, target, size_average=False).item()
-      pred = output.data.max(1, keepdim=True)[1]
-      correct += pred.eq(target.data.view_as(pred)).sum()
+      pred       = output.data.max(1, keepdim=True)[1]
+      correct   += pred.eq(target.data.view_as(pred)).sum()
+
   test_loss /= len(test_loader.dataset)
   test_losses.append(test_loss)
+
   print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
     test_loss, correct, len(test_loader.dataset),
     100. * correct / len(test_loader.dataset)))
