@@ -1,4 +1,5 @@
 import torch.nn.utils.prune as prune
+import torch
 
 class DecorePruningStrategy(prune.BasePruningMethod):
     '''
@@ -7,8 +8,16 @@ class DecorePruningStrategy(prune.BasePruningMethod):
     PRUNING_TYPE = 'unstructured'
 
     def compute_mask(self, t, default_mask):
+        assert(default_mask.dim() == 4), f"Expected 4 dims (OIFF), got {default_mask.dim()}"
         mask = default_mask.clone()
-        mask.view(-1)[::2] = 0
+
+        for out_dim in range(default_mask.shape[0]):
+            if out_dim % 2 != 0:
+                mask[out_dim] = 0
+                assert (torch.numel(mask[out_dim]) - torch.count_nonzero(mask[out_dim])) == torch.numel(mask[out_dim])
+            else:
+                assert torch.count_nonzero(mask[out_dim]) == torch.numel(mask[out_dim])
+
         return mask
 
 def decore_structured(module, name):

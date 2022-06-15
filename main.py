@@ -51,12 +51,12 @@ network   = torch.load("./models/baseline_98.pt")
 for name, module in network.named_modules():
     # prune 40% of connections in all 2D convolutional layers
     if isinstance(module, torch.nn.Conv2d):
-        decore_structured(module, name="weight")
-        print( "Sparsity in {}: {:.2f}%".format(name, 
+      decore_structured(module, name="weight")
+      print( "Sparsity in {}: {:.2f}%".format(name, 
           100. * float(torch.sum(module.weight == 0))
         / float(module.weight.nelement())
-      )
-)
+      ))
+
 print("Pruning Conv2D complete.")
 
 optimizer = optim.SGD(network.parameters(), lr=learning_rate,
