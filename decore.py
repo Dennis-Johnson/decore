@@ -1,32 +1,37 @@
 import torch, torch.nn.utils.prune as prune
 
+class Agent:
+    def __init__(self, module, module_name):
+        self.reward  = 0
+
+        # Weight vector with size (num_channels)
+        self.weights = torch.zeros(module.out_channels)
+        
+        assert isinstance(module, torch.nn.Conv2d)
+        self.module = module
+        self.name   = module_name
+
+    def reinforce():
+        pass
+
+    def calcReward():
+        pass
+
 class DecorePruningStrategy(prune.BasePruningMethod):
     '''
     Prune every other entry in a tensor
     '''
-    def compute_mask(self, t_unused, default_mask):
+    def compute_mask(self, importance_scores, default_mask):
         '''
         Overriden method, applies a channel mask to the layer.
+        Importance scores are the layer's agent's weights, broadcasted.
         '''
-        channel_mask =  self.decore_channel_mask(default_mask)
-        mask = default_mask.clone()
-        for channel_num, chn_mask in enumerate(channel_mask):
-            mask[channel_num] *= chn_mask
+        probs = torch.sigmoid(importance_scores)
+        mask  = torch.bernoulli(probs)
         return mask
-        
-    def decore_channel_mask(self, default_mask):
-        '''
-        Compute the channel mask given some weights. 
-        1. A weight Wj is given for each channel in the layer.
-        2. Init each channel weight=6.99 so prob of keeping ~= 1.
-        3. Use these probs to draw either 0, 1 from a Bernoulli dist. 
-        '''
-        weights = torch.zeros(default_mask.shape[0]) + 6.99
-        probs   = torch.sigmoid(weights)
-        return torch.bernoulli(probs)
 
 
-def decore_structured(module, name):
+def decore_pruning(module, name, agent):
     '''
     Prunes tensor corresponding to parameter called `name` in `module`
     
@@ -39,8 +44,10 @@ def decore_structured(module, name):
         module (nn.Module): modified (i.e. pruned) version of the input
             module
     '''
+    importance_scores  = torch.zeros(module.out_channels, module.in_channels, module.kernel_size[0], module.kernel_size[1])
+    importance_scores *= agent.weights.view(-1, 1, 1, 1)
 
-    DecorePruningStrategy.apply(module, name)
+    DecorePruningStrategy.apply(module, name, importance_scores=importance_scores)
     return module
     
-__all__ = [DecorePruningStrategy, decore_structured]
+__all__ = [DecorePruningStrategy, decore_pruning, Agent]

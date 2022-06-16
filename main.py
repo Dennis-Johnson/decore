@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn.utils.prune as prune
 import matplotlib.pyplot as plt
-from decore import decore_structured
+from decore import decore_pruning, Agent
 from dataloaders import get_dataloaders
 from CNN import CNN
 
@@ -45,13 +45,18 @@ if plot_data:
     plt.yticks([])
   plt.show()
 
-network   = torch.load("./models/baseline_98.pt")
+network = torch.load("./models/baseline_98.pt")
+agents  = []  
 
 # Prune channels randomly
 for name, module in network.named_modules():
     # prune 40% of connections in all 2D convolutional layers
     if isinstance(module, torch.nn.Conv2d):
-      decore_structured(module, name="weight")
+      # Create an RL agent for each conv2d layer. 
+      agent = Agent(module, name)
+      decore_pruning(module, name="weight", agent = agent)
+      agents.append(agent)
+      
       print( "Sparsity in {}: {:.2f}%".format(name, 
           100. * float(torch.sum(module.weight == 0))
         / float(module.weight.nelement())
@@ -108,7 +113,6 @@ def test():
 
 training_stats = []
 
-# Train and benchmark M1 CPU vs GPU
 test()
 for epoch in range(1, n_epochs + 1):
     train(epoch)
