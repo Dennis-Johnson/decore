@@ -1,7 +1,7 @@
 from CNN import CNN
 from utils import train, test
 from dataloaders import get_dataloaders
-from decore import decore_pruning, Agent
+from decore import DecorePruningStrategy, Agent
 import torch, torch.optim as optim, torch.nn.functional as F 
 
 # Parameters for the CNN
@@ -20,23 +20,26 @@ if not torch.backends.mps.is_available() and not torch.backends.mps.is_built():
         exit()
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-train_loader, test_loader = get_dataloaders(batch_size_train, batch_size_test)
-examples = enumerate(test_loader)
-
 network = torch.load("./models/baseline_98.pt")
-agents  = []  
+agents  = [] 
+
+train_loader, test_loader = get_dataloaders(batch_size_train, batch_size_test)
+examples = enumerate(test_loader) 
 
 # Prune channels using decore and initialise agents.
 for name, module in network.named_modules():
     if isinstance(module, torch.nn.Conv2d):
       # Create an RL agent for each conv2d layer and apply initial mask.
       agent = Agent(module, name)
-      mask, probs = decore_pruning(module, name="weight", agent = agent)
+      agent.policy()
+
+      # Applies decore mask to tensor in place. 
+      DecorePruningStrategy.apply(agent.module, agent.name, importance_scores=agent.action)
       agents.append(agent)
       
       print( "Initial sparsity in {}: {:.2f}%".format(name, 
-          100. * float(torch.sum(module.weight == 0))
-        / float(module.weight.nelement())
+          100. * float(torch.sum(agent.action == 0))
+        / float(agent.module.weight.nelement())
       ))
 
 print("\nPruning Conv2D complete ********************")
