@@ -21,14 +21,14 @@ class Agent:
     def policy(self):
         '''
         Returns
-        mask  : The mask that chooses which channels to keep. 
-        probs : The probabilities of keeping each channel in the layer. 
+        action : The mask that chooses which channels to keep. 
+        probs  : The probabilities of keeping each channel in the layer. 
         '''
         importance_scores  = torch.zeros(self.module.out_channels, self.module.in_channels, self.module.kernel_size[0], self.module.kernel_size[1])
         importance_scores *= self.weights.view(-1, 1, 1, 1)
         self.probs  = torch.sigmoid(importance_scores)
         self.action = torch.bernoulli(self.probs)
-        
+
         return self.action, self.probs
 
     def reinforce():
@@ -46,6 +46,6 @@ class DecorePruningStrategy(prune.BasePruningMethod):
         Overriden method, applies a channel mask to the layer.
         Importance scores is the actual mask used. 
         '''
-        return default_mask
+        return importance_scores
     
 __all__ = [DecorePruningStrategy,  Agent]
