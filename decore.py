@@ -26,9 +26,7 @@ class DecorePruningStrategy(prune.BasePruningMethod):
         Overriden method, applies a channel mask to the layer.
         Importance scores are the layer's agent's weights, broadcasted.
         '''
-        probs = torch.sigmoid(importance_scores)
-        mask  = torch.bernoulli(probs)
-        return mask
+        return importance_scores
 
 
 def decore_pruning(module, name, agent):
@@ -46,8 +44,11 @@ def decore_pruning(module, name, agent):
     '''
     importance_scores  = torch.zeros(module.out_channels, module.in_channels, module.kernel_size[0], module.kernel_size[1])
     importance_scores *= agent.weights.view(-1, 1, 1, 1)
+    probs = torch.sigmoid(importance_scores)
+    mask  = torch.bernoulli(probs)
 
-    DecorePruningStrategy.apply(module, name, importance_scores=importance_scores)
-    return module
+    # Applied decore mask to tensor in place. 
+    DecorePruningStrategy.apply(module, name, importance_scores=mask)
+    return mask, probs
     
 __all__ = [DecorePruningStrategy, decore_pruning, Agent]
