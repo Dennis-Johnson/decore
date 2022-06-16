@@ -4,7 +4,6 @@ Deep Compression with Reinforcement Learning. [arxiv](https://arxiv.org/abs/2106
 This is a PyTorch implementation of the DECORE compression algorithm. 
 
 Milestones:
-1. Fine-tune a CNN style network on a simple dataset. 
-2. Implement a wrapper over the custom structured pruning flow in PyTorch. 
-3. Add REINFORCE based RL agents before CNN and Linear layers to decide how to prune. 
-4. Profit. 
+1. Improve the wrapper over the custom structured pruning flow in PyTorch. 
+2. Add REINFORCE-based RL agents before CNN layers that dictate which channels to prune. 
+3. Profit. 
