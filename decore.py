@@ -1,6 +1,7 @@
 import torch, torch.nn.utils.prune as prune
 
 class Agent:
+    # TODO: Refactor this out once it works. 
     def __init__(self, module, module_name):
         self.reward  = 0
 
@@ -19,12 +20,12 @@ class Agent:
 
 class DecorePruningStrategy(prune.BasePruningMethod):
     '''
-    Prune every other entry in a tensor
+    Prune using the given importance scores
     '''
     def compute_mask(self, importance_scores, default_mask):
         '''
         Overriden method, applies a channel mask to the layer.
-        Importance scores are the layer's agent's weights, broadcasted.
+        Importance scores is the actual mask used. 
         '''
         return importance_scores
 
@@ -37,17 +38,18 @@ def decore_pruning(module, name, agent):
         module (nn.Module): module containing the tensor to prune
         name (string): parameter name within `module` on which pruning
                 will act.
+        agent (Agent): The RL agent that chooses channels to prune in the layer. 
 
     Returns:
-        module (nn.Module): modified (i.e. pruned) version of the input
-            module
+       mask  : The mask that chooses which channels to keep. 
+       probs : The probabilities of keeping each channel in the layer. 
     '''
     importance_scores  = torch.zeros(module.out_channels, module.in_channels, module.kernel_size[0], module.kernel_size[1])
     importance_scores *= agent.weights.view(-1, 1, 1, 1)
     probs = torch.sigmoid(importance_scores)
     mask  = torch.bernoulli(probs)
 
-    # Applied decore mask to tensor in place. 
+    # Applies decore mask to tensor in place. 
     DecorePruningStrategy.apply(module, name, importance_scores=mask)
     return mask, probs
     
