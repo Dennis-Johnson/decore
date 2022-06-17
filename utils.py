@@ -12,7 +12,7 @@ def train(epoch: int, network: nn.Module, train_loader, optimizer, train_losses,
     optimizer.zero_grad()
     output = network(data)
     loss   = F.nll_loss(output, target) 
-    loss.backward()
+    loss.backward(retain_graph=True)
     optimizer.step()
 
     if batch_idx % log_interval == 0:
@@ -35,6 +35,7 @@ def test(network: nn.Module, test_loader, test_losses):
   network.eval()
   test_loss = 0
   correct   = 0
+  predictions = []
 
   with torch.no_grad():
     for data, target in test_loader:
@@ -42,6 +43,7 @@ def test(network: nn.Module, test_loader, test_losses):
       test_loss += F.nll_loss(output, target, size_average=False).item()
       pred       = output.data.max(1, keepdim = True)[1]
       correct   += pred.eq(target.data.view_as(pred)).sum()
+      predictions.extend(pred.eq(target.data.view_as(pred)).flatten())
 
   test_loss /= len(test_loader.dataset)
   test_losses.append(test_loss)
@@ -50,7 +52,7 @@ def test(network: nn.Module, test_loader, test_losses):
     test_loss, correct, len(test_loader.dataset),
     100. * correct / len(test_loader.dataset)))
 
-  return test_losses
+  return test_losses, predictions
 
 
 def plot_data(example_data, example_targets):
