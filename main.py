@@ -1,7 +1,8 @@
 from CNN import CNN
 from utils import train, test
+from DecoreAgent import DecoreAgent
 from dataloaders import get_dataloaders
-from decore import DecorePruningStrategy, Agent
+from PruningStrategies import DecorePruningStrategy
 import torch, torch.optim as optim, torch.nn.functional as F 
 
 # Parameters for the CNN
@@ -29,13 +30,13 @@ examples = enumerate(test_loader)
 # Prune channels using decore and initialise agents.
 for name, module in network.named_modules():
     if isinstance(module, torch.nn.Conv2d):
-      # Create an RL agent for each conv2d layer and apply initial mask.
-      agent = Agent(module, name)
-      agent.policy()
+      # Create an RL agent for each conv2d layer.
+      agent = DecoreAgent(module, name)
+      _mask, _probs = agent.policy()
+      agents.append(agent)
 
       # Applies decore mask to tensor in place. 
       DecorePruningStrategy.apply(agent.module, agent.name, importance_scores=agent.action)
-      agents.append(agent)
       
       print( "Initial sparsity in {}: {:.2f}%".format(name, 
           100. * float(torch.sum(agent.action == 0))
@@ -55,5 +56,15 @@ test_counter   = [ i * len(train_loader.dataset) for i in range(n_epochs + 1) ]
 # Train and evaluate performance. 
 test_losses = test(network, test_loader, test_losses)
 for epoch in range(1, n_epochs + 1):
+    # Take an action : Apply a channel mask.
+    _mask, _probs = agent.policy()
+    DecorePruningStrategy.apply(agent.module, agent.name, importance_scores=agent.action)
+
+    # Take a step : Fine-tune the pruned network.
     train_losses, train_counter = train(epoch, network, train_loader, optimizer, train_losses, train_counter, log_interval = 10)
+
+    # Get reward : Get results of an inference run.
     test_losses = test(network, test_loader, test_losses)
+
+    # Update the policy.
+    agent.reinforce()
