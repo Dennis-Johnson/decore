@@ -1,10 +1,10 @@
 from pyexpat import model
 from CNN import CNN
 from utils import train, test
-from DecoreAgent import DecoreAgent, DecoreLayer
+from decore import DecoreAgent, DecoreLayer
 from dataloaders import get_dataloaders
 from PruningStrategies import DecorePruningStrategy
-import torch, torch.optim as optim, torch.nn.functional as F 
+import torch, torch.optim as optim, torch.nn.functional as F
 
 # Parameters for the CNN
 n_epochs         = 5
@@ -45,11 +45,9 @@ for mod_name, module in network.named_modules():
       # The RL Optimiser will optimise the agent weights. 
       optim_params.extend([agent.weight for agent in agents])
 
-      layer  =  DecoreLayer(module, mod_name, agents)
+      layer = DecoreLayer(module, mod_name, agents)
       layers.append(layer)
-
       layer_num += 1
-
 
 print("\nAgents Initialised ********************")
 
@@ -64,7 +62,6 @@ rl_optimizer = optim.Adam(optim_params, lr=0.01)
 
 # Train and evaluate performance. 
 test_losses, predictions = test(network, test_loader, test_losses)
-loss = torch.tensor(0.0, requires_grad=True)
 
 for epoch in range(1, n_epochs + 1):
 
@@ -80,9 +77,9 @@ for epoch in range(1, n_epochs + 1):
       )
       importance_scores *= channel_mask.view(-1, 1, 1, 1)
 
-      print(importance_scores.shape, layer.module.weight.shape)
       DecorePruningStrategy.apply(layer.module, name="weight", importance_scores=importance_scores)
-    
+      print(f"{layer.module_name}: {layer.calc_sparsity()}")
+
     # Take a step : Fine-tune the pruned network.
     train_losses, train_counter = train(epoch, network, train_loader, optimizer, train_losses, train_counter, log_interval = 200)
 
@@ -90,15 +87,17 @@ for epoch in range(1, n_epochs + 1):
     test_losses, predictions = test(network, test_loader, test_losses)
     
 
-    # rl_optimizer.zero_grad()
+    rl_optimizer.zero_grad()
+    loss = torch.tensor(0.0, requires_grad=True)
 
-    # for prediction in predictions:
-    #   for agent in agents:
-    #     reward = agent.calcRewards(prediction)
-    #     torch.add(loss, agent.reinforce(reward) * reward)
+    for prediction in predictions:
+      for layer in layers:
+        mask_, probs = layer.layer_policy()
 
-    # torch.div(loss, len(predictions))
+        reward = layer.layer_reward(prediction)
+        torch.add(loss, -torch.prod(probs) * reward)  
+    torch.div(loss, len(predictions))
     
-    # # Update the policy  
-    # loss.backward()
-    # rl_optimiser.step()
+    # Update the policy  
+    loss.backward(retain_graph = True)
+    rl_optimizer.step()

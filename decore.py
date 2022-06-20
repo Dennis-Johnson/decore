@@ -6,11 +6,11 @@ class DecoreAgent:
         self.layer_num   = layer_num
 
         # Initially 6.9 so that probability(keep_channel) ~= 0.99
-        self.weight      = torch.tensor(6.9, requires_grad=True)
+        self.weight = torch.tensor(6.9, requires_grad=True)
 
         # Initialise probs and actions.
-        self.action, self.probs = None, None
-        self.policy()
+        self.prob   = torch.sigmoid(self.weight)
+        self.action = torch.bernoulli(self.prob)
 
     def policy(self):
         self.prob   = torch.sigmoid(self.weight)
@@ -35,8 +35,8 @@ class DecoreLayer:
             action, prob = agent.policy()
             mask.append(action)
             probs.append(prob)
-
-        return torch.tensor(mask), torch.tensor(probs)
+        
+        return torch.tensor(mask, requires_grad=True), torch.tensor(probs,requires_grad=True)
 
     def layer_reward(self, predictionWasCorrect:bool):
         droppedChannels = 0
@@ -44,9 +44,12 @@ class DecoreLayer:
             droppedChannels += (1 - agent.action)
 
         return droppedChannels * (self.REWARD_RIGHT if predictionWasCorrect else self.REWARD_WRONG)
-
+    
     def calc_sparsity(self):
-        pass
+        notDropped = 0
+        for agent in self.agents:
+            notDropped += agent.action
+        return 100.0 * notDropped / float(len(self.agents))
 
     
 __all__ = [DecoreAgent, DecoreLayer]
