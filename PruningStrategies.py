@@ -1,5 +1,7 @@
 import torch.nn.utils.prune as prune
 
+# TODO: Check if a default channel pruning strategy is available from Torch. 
+
 class DecorePruningStrategy(prune.BasePruningMethod):
     '''
     Prune using the given importance scores

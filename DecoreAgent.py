@@ -1,54 +1,52 @@
-import torch 
+import torch, torch.nn as nn
 
 class DecoreAgent:
-    def __init__(self, module, module_name):
-        assert isinstance(module, torch.nn.Conv2d), "Only supports pruning Conv2D layers."
+    def __init__(self, layer_num:int, channel_num: int):
+        self.channel_num = channel_num
+        self.layer_num   = layer_num
+
+        # Initially 6.9 so that probability(keep_channel) ~= 0.99
+        self.weight      = torch.tensor(6.9, requires_grad=True)
+
+        # Initialise probs and actions.
+        self.action, self.probs = None, None
+        self.policy()
+
+    def policy(self):
+        self.prob   = torch.sigmoid(self.weight)
+        self.action = torch.bernoulli(self.prob)
+        return self.action, self.prob
+
+class DecoreLayer:
+    # Rewards for right and wrong predicitons. 
+    REWARD_RIGHT = 1
+    REWARD_WRONG = -10
+
+    def __init__(self, module:nn.Module, module_name: str, agents: list):
         self.module      = module
         self.module_name = module_name
-        self.name        = "weight"
+        self.agents      = agents
 
-        # Weight vector with size (num_channels).
-        # Default 6.99 so that prob(keep_channel) ~= 0.99 after sigmoid. 
-        self.weights = torch.zeros(module.out_channels, requires_grad=True)
-        torch.add(self.weights, 6.99)
-        # self.weights.register_hook(lambda x: None)
+    def layer_policy(self):
+        mask  = []
+        probs = []
 
-        # Either 1 to keep channel, or 0 to prune it. 
-        self.action = self.probs  = torch.ones_like(self.weights), torch.ones_like(self.weights)
-        self.policy()
-        # Large negative penalty as reward for wrong predictions.
-        self.penalty     = -10
+        for agent in self.agents:
+            action, prob = agent.policy()
+            mask.append(action)
+            probs.append(prob)
+
+        return torch.tensor(mask), torch.tensor(probs)
+
+    def layer_reward(self, predictionWasCorrect:bool):
+        droppedChannels = 0
+        for agent in self.agents:
+            droppedChannels += (1 - agent.action)
+
+        return droppedChannels * (self.REWARD_RIGHT if predictionWasCorrect else self.REWARD_WRONG)
+
+    def calc_sparsity(self):
+        pass
+
     
-    def policy(self):
-        '''
-        Returns
-        mask   : The mask that chooses which channels to keep. Same size as self.module
-        probs  : The probabilities of keeping each channel in the layer. 
-        '''
-        # Multiply --> ImpScores (shape is [O,I, K, K]) * Weights(shape is [O])
-        importance_scores  = torch.ones(self.module.out_channels, self.module.in_channels, self.module.kernel_size[0], self.module.kernel_size[1])
-        importance_scores *= self.weights.view(-1, 1, 1, 1)
-
-        self.probs  = torch.sigmoid(importance_scores)[:,0,0,0]
-        self.action = torch.bernoulli(self.probs)
-
-        # print(self.action, self.probs)
-        return torch.bernoulli(torch.sigmoid(importance_scores)), self.probs
-
-    def reinforce(self, batchRewards):
-        print(self.module.named_buffers())  # to verify that all masks exist
-        print(self.module.named_parameters())  # to verify that all masks exist
-
-        agent_loss_term = 0
-        joint_prob = torch.log(torch.prod(self.probs))
-        for reward in batchRewards:
-            agent_loss_term += joint_prob * reward
-        agent_loss_term /= len(batchRewards)
-        
-        return agent_loss_term
-
-
-    def calcRewards(self, predictionWasCorrect: bool):
-        return torch.sum(self.action == 0) * (1 if predictionWasCorrect else self.penalty)
-
-__all__ = [DecoreAgent]
+__all__ = [DecoreAgent, DecoreLayer]
