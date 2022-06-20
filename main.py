@@ -76,7 +76,7 @@ for epoch in range(1, n_epochs + 1):
         layer.module.kernel_size[1]
       )
       importance_scores *= channel_mask.view(-1, 1, 1, 1)
-
+      
       DecorePruningStrategy.apply(layer.module, name="weight", importance_scores=importance_scores)
       print(f"{layer.module_name}: {layer.calc_sparsity()}")
 
@@ -85,19 +85,17 @@ for epoch in range(1, n_epochs + 1):
 
     # Get reward : Get results of an inference run.
     test_losses, predictions = test(network, test_loader, test_losses)
-    
 
-    rl_optimizer.zero_grad()
     loss = torch.tensor(0.0, requires_grad=True)
 
-    for prediction in predictions:
-      for layer in layers:
-        mask_, probs = layer.layer_policy()
-
+    for layer in layers:
+      mask_, probs = layer.layer_policy()
+      for prediction in predictions:
         reward = layer.layer_reward(prediction)
-        torch.add(loss, -torch.prod(probs) * reward)  
+        torch.add(loss, -1 * torch.prod(probs) * reward)  
     torch.div(loss, len(predictions))
     
     # Update the policy  
-    loss.backward(retain_graph = True)
+    rl_optimizer.zero_grad()
+    loss.backward()
     rl_optimizer.step()
