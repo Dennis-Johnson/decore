@@ -2,12 +2,12 @@ import torch, torch.nn as nn
 from PruningStrategies import DecorePruningStrategy
 
 class DecoreAgent:
-    def __init__(self, layer_num:int, channel_num: int):
+    def __init__(self, layer_num:int, channel_num: int, init_weight:float=6.9):
         self.channel_num = channel_num
         self.layer_num   = layer_num
 
         # Initially 6.9 so that probability(keep_channel) ~= 0.99
-        self.weight = torch.tensor(0.0, requires_grad=True)
+        self.weight = torch.tensor(init_weight, requires_grad=True)
 
         # Initialise probs and actions.
         self.policy()

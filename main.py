@@ -43,7 +43,7 @@ for mod_name, module in network.named_modules():
 
     # Initialise agents for each channel in each layer.
     if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
-      agents = [DecoreAgent(layer_num, channel_num) for channel_num in range(module.weight.shape[0])]
+      agents = [DecoreAgent(layer_num, channel_num, init_weight=6.9) for channel_num in range(module.weight.shape[0])]
 
       # The RL Optimiser will optimise the agent weights. 
       optim_params.extend([agent.weight for agent in agents])
@@ -89,11 +89,12 @@ for epoch in range(1, n_epochs + 1):
     #### Update RL agent weights.
     for layer in layers:
       mask_, probs = layer.layer_mask, layer.layer_probs
+
       for prediction in predictions:
         reward = layer.layer_reward(prediction)
         torch.add(loss, -torch.prod(probs) * reward) 
       
-      # Remove the previous mask to avoid cascading masks.
+      #### Remove the previous mask to avoid cascading.
       prune.remove(layer.module, name="weight")
     torch.div(loss, len(predictions))
     
