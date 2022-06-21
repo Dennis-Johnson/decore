@@ -9,7 +9,7 @@ import torch.nn.utils.prune as prune
 
 # Parameters for the CNN
 n_epochs         = 40
-batch_size_train = 128
+batch_size_train = 256
 batch_size_test  = 1000
 learning_rate    = 0.01
 momentum         = 0.5
@@ -64,7 +64,6 @@ rl_optimizer = optim.Adam(optim_params, lr=0.01)
 test_losses, predictions = test(network, test_loader, test_losses)
 
 for epoch in range(1, n_epochs + 1):
-
     #### Take an action : Apply a channel mask to each layer.
     for layer in layers:
       channel_mask, probs = layer.layer_policy()
@@ -86,8 +85,10 @@ for epoch in range(1, n_epochs + 1):
     test_losses, predictions = test(network, test_loader, test_losses)
 
     # Save the best model yet
-    if test_losses[-1] < best_test_loss:
-      print(f"Saved best model, test_loss {test_losses[-1]}")
+    test_loss = test_losses[-1]
+    if test_loss < best_test_loss:
+      best_test_loss = test_loss
+      print(f"Saved best model, test_loss {test_loss}")
       torch.save(network, "./models/best.pt")
 
     loss = torch.tensor(0.0, requires_grad=True)
@@ -100,7 +101,7 @@ for epoch in range(1, n_epochs + 1):
         torch.add(loss, -torch.prod(probs) * reward) 
       
       # Remove the previous mask to avoid cascading masks.
-      prune.remove(layer.module, name="weight")
+      # prune.remove(layer.module, name="weight")
     torch.div(loss, len(predictions))
     
     #### Update the policy  

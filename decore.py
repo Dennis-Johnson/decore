@@ -6,7 +6,7 @@ class DecoreAgent:
         self.layer_num   = layer_num
 
         # Initially 6.9 so that probability(keep_channel) ~= 0.99
-        self.weight = torch.tensor(0.0, requires_grad=True)
+        self.weight = torch.tensor(6.9, requires_grad=True)
 
         # Initialise probs and actions.
         self.prob   = torch.sigmoid(self.weight)
@@ -20,7 +20,7 @@ class DecoreAgent:
 class DecoreLayer:
     # Rewards for right and wrong predicitons. 
     REWARD_RIGHT =  1
-    REWARD_WRONG = -20
+    REWARD_WRONG = -2
 
     def __init__(self, module:nn.Module, module_name: str, agents: list):
         self.module      = module
@@ -54,7 +54,7 @@ class DecoreLayer:
         notDropped = 0
         for agent in self.agents:
             notDropped += agent.action
-        return 100.0 * notDropped / float(len(self.agents))
+        return 100.0 * (float(len(self.agents) - notDropped)) / float(len(self.agents))
 
     
 __all__ = [DecoreAgent, DecoreLayer]
