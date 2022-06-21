@@ -12,7 +12,7 @@ def train(epoch: int, network: nn.Module, train_loader, optimizer, train_losses,
     optimizer.zero_grad()
     output = network(data)
     loss   = F.nll_loss(output, target) 
-    loss.backward(retain_graph=True)
+    loss.backward()
     optimizer.step()
 
     if batch_idx % log_interval == 0:

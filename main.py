@@ -1,4 +1,5 @@
 from pyexpat import model
+import re
 from CNN import CNN
 from utils import train, test
 from decore import DecoreAgent, DecoreLayer
@@ -42,6 +43,7 @@ for mod_name, module in network.named_modules():
       break
 
     # Initialise agents for each channel in each layer.
+    # TODO: Why do I get NaN reward after the FC layer?
     if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
       agents = [DecoreAgent(layer_num, channel_num, init_weight=6.9) for channel_num in range(module.weight.shape[0])]
 
@@ -66,6 +68,7 @@ rl_optimizer = optim.Adam(optim_params, lr=0.01)
 #### Train and evaluate performance. 
 test_losses, predictions, acc_ = test(network, test_loader, test_losses)
 
+
 for epoch in range(1, n_epochs + 1):
     #### Take an action : Apply a channel mask to each layer.
     for layer in layers:
@@ -84,6 +87,7 @@ for epoch in range(1, n_epochs + 1):
       print(f"Saved best model, test_loss {test_loss}")
       torch.save(network, f"./models/best_acc{accuracy}_ep{epoch}.pt")
 
+    rl_optimizer.zero_grad()
     loss = torch.tensor(0.0, requires_grad=True)
 
     #### Update RL agent weights.
@@ -92,13 +96,16 @@ for epoch in range(1, n_epochs + 1):
 
       for prediction in predictions:
         reward = layer.layer_reward(prediction)
-        torch.add(loss, -torch.prod(probs) * reward) 
-      
+        loss = torch.add(loss, -1 * torch.prod(torch.log(probs)) * reward) 
+      loss = torch.div(loss, len(predictions))
+      print(f"RL Loss: {loss}")
+
       #### Remove the previous mask to avoid cascading.
       prune.remove(layer.module, name="weight")
-    torch.div(loss, len(predictions))
-    
+
     #### Update the policy  
-    rl_optimizer.zero_grad()
     loss.backward()
     rl_optimizer.step()
+
+
+    

@@ -46,7 +46,7 @@ class DecoreLayer:
     def layer_reward(self, predictionWasCorrect:bool):
         droppedChannels = 0
         for agent in self.agents:
-            droppedChannels = droppedChannels * (1 - agent.action)
+            droppedChannels = droppedChannels + (1 - agent.action)
         
         return droppedChannels * (self.REWARD_RIGHT if predictionWasCorrect else self.REWARD_WRONG)
 
@@ -57,7 +57,7 @@ class DecoreLayer:
         return 100.0 * (float(len(self.agents) - notDropped)) / float(len(self.agents))
 
     def decore_prune(self):
-        channel_mask, probs = self.layer_policy()
+        channel_mask, _ = self.layer_policy()
 
         importance_scores  = torch.ones((self.module.weight.shape))
 
