@@ -5,9 +5,10 @@ from decore import DecoreAgent, DecoreLayer
 from dataloaders import get_dataloaders
 from PruningStrategies import DecorePruningStrategy
 import torch, torch.optim as optim, torch.nn.functional as F
+import torch.nn.utils.prune as prune
 
 # Parameters for the CNN
-n_epochs         = 5
+n_epochs         = 40
 batch_size_train = 128
 batch_size_test  = 1000
 learning_rate    = 0.01
@@ -32,7 +33,6 @@ agents  = []
 train_loader, test_loader = get_dataloaders(batch_size_train, batch_size_test)
 examples = enumerate(test_loader) 
 
-
 optim_params = []
 layers       = []
 layer_num    = 0
@@ -56,16 +56,16 @@ train_losses   = []
 train_counter  = []
 test_losses    = []
 test_counter   = [ i * len(train_loader.dataset) for i in range(n_epochs + 1) ]
-
+best_test_loss = 10000
 optimizer    = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum)
 rl_optimizer = optim.Adam(optim_params, lr=0.01)
 
-# Train and evaluate performance. 
+#### Train and evaluate performance. 
 test_losses, predictions = test(network, test_loader, test_losses)
 
 for epoch in range(1, n_epochs + 1):
 
-    # Take an action : Apply a channel mask to each layer.
+    #### Take an action : Apply a channel mask to each layer.
     for layer in layers:
       channel_mask, probs = layer.layer_policy()
 
@@ -78,24 +78,32 @@ for epoch in range(1, n_epochs + 1):
       importance_scores *= channel_mask.view(-1, 1, 1, 1)
       
       DecorePruningStrategy.apply(layer.module, name="weight", importance_scores=importance_scores)
-      print(f"{layer.module_name}: {layer.calc_sparsity()}")
+      print(f"Sparsity ({layer.module_name}) : {layer.calc_sparsity()}%")
+    #### Take a step : Fine-tune the pruned network.
+    train_losses, train_counter = train(epoch, network, train_loader, optimizer, train_losses, train_counter, log_interval = 100)
 
-    # Take a step : Fine-tune the pruned network.
-    train_losses, train_counter = train(epoch, network, train_loader, optimizer, train_losses, train_counter, log_interval = 200)
-
-    # Get reward : Get results of an inference run.
+    #### Get reward : Get results of an inference run.
     test_losses, predictions = test(network, test_loader, test_losses)
+
+    # Save the best model yet
+    if test_losses[-1] < best_test_loss:
+      print(f"Saved best model, test_loss {test_losses[-1]}")
+      torch.save(network, "./models/best.pt")
 
     loss = torch.tensor(0.0, requires_grad=True)
 
+    #### Update RL agent weights.
     for layer in layers:
-      mask_, probs = layer.layer_policy()
+      mask_, probs = layer.layer_mask, layer.layer_probs
       for prediction in predictions:
         reward = layer.layer_reward(prediction)
-        torch.add(loss, -1 * torch.prod(probs) * reward)  
+        torch.add(loss, -torch.prod(probs) * reward) 
+      
+      # Remove the previous mask to avoid cascading masks.
+      prune.remove(layer.module, name="weight")
     torch.div(loss, len(predictions))
     
-    # Update the policy  
+    #### Update the policy  
     rl_optimizer.zero_grad()
     loss.backward()
     rl_optimizer.step()

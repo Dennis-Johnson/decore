@@ -20,12 +20,14 @@ class DecoreAgent:
 class DecoreLayer:
     # Rewards for right and wrong predicitons. 
     REWARD_RIGHT =  1
-    REWARD_WRONG = -8
+    REWARD_WRONG = -20
 
     def __init__(self, module:nn.Module, module_name: str, agents: list):
         self.module      = module
         self.module_name = module_name
         self.agents      = agents
+        self.layer_mask  = None
+        self.layer_probs = None
 
     def layer_policy(self):
         mask  = []
@@ -36,15 +38,18 @@ class DecoreLayer:
             mask.append(action)
             probs.append(prob)
         
-        return torch.tensor(mask), torch.tensor(probs)
+        
+        self.layer_mask  = torch.tensor(mask)
+        self.layer_probs = torch.tensor(probs)
+        return self.layer_mask, self.layer_probs
 
     def layer_reward(self, predictionWasCorrect:bool):
         droppedChannels = 0
         for agent in self.agents:
-            droppedChannels += (1 - agent.action)
-
+            droppedChannels = droppedChannels * (1 - agent.action)
+        
         return droppedChannels * (self.REWARD_RIGHT if predictionWasCorrect else self.REWARD_WRONG)
-    
+
     def calc_sparsity(self):
         notDropped = 0
         for agent in self.agents:
