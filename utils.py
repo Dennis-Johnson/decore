@@ -47,12 +47,12 @@ def test(network: nn.Module, test_loader, test_losses):
 
   test_loss /= len(test_loader.dataset)
   test_losses.append(test_loss)
-
+  accuracy = 100. * correct / len(test_loader.dataset)
   print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
     test_loss, correct, len(test_loader.dataset),
-    100. * correct / len(test_loader.dataset)))
+    accuracy))
 
-  return test_losses, predictions
+  return test_losses, predictions, accuracy
 
 
 def plot_data(example_data, example_targets):

@@ -1,4 +1,5 @@
 import torch, torch.nn as nn
+from PruningStrategies import DecorePruningStrategy
 
 class DecoreAgent:
     def __init__(self, layer_num:int, channel_num: int):
@@ -19,7 +20,7 @@ class DecoreAgent:
 class DecoreLayer:
     # Rewards for right and wrong predicitons. 
     REWARD_RIGHT =  1
-    REWARD_WRONG = -1
+    REWARD_WRONG = -10
 
     def __init__(self, module:nn.Module, module_name: str, agents: list):
         self.module      = module
@@ -55,5 +56,19 @@ class DecoreLayer:
             notDropped += agent.action
         return 100.0 * (float(len(self.agents) - notDropped)) / float(len(self.agents))
 
-    
+    def decore_prune(self):
+        channel_mask, probs = self.layer_policy()
+
+        importance_scores  = torch.ones((self.module.weight.shape))
+
+        if isinstance(self.module, torch.nn.Conv2d):
+            importance_scores *= channel_mask.view(-1, 1, 1, 1)
+
+        elif isinstance(self.module, torch.nn.Linear):
+            importance_scores *= channel_mask.view(-1, 1)
+
+        
+        DecorePruningStrategy.apply(self.module, name="weight", importance_scores=importance_scores)
+        print(f"Sparsity ({self.module_name}) : {self.calc_sparsity()}%")
+
 __all__ = [DecoreAgent, DecoreLayer]
