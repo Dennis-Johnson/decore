@@ -101,7 +101,7 @@ for epoch in range(1, n_epochs + 1):
         torch.add(loss, -torch.prod(probs) * reward) 
       
       # Remove the previous mask to avoid cascading masks.
-      # prune.remove(layer.module, name="weight")
+      prune.remove(layer.module, name="weight")
     torch.div(loss, len(predictions))
     
     #### Update the policy  
