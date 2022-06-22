@@ -1,5 +1,6 @@
 import torch, torch.nn as nn
 from PruningStrategies import DecorePruningStrategy
+import torch.distributions as dist
 
 class DecoreAgent:
     def __init__(self, layer_num:int, channel_num: int, init_weight:float=6.9):
@@ -13,14 +14,18 @@ class DecoreAgent:
         self.policy()
 
     def policy(self):
-        self.prob   = torch.sigmoid(self.weight)
-        self.action = torch.bernoulli(self.prob)
-        return self.action, self.prob
+        self.logits = torch.sigmoid(self.weight)
+        self.dist   = dist.Bernoulli(logits = self.logits)
+        self.action = torch.tensor(self.dist.sample().item())
+        return self.action
+    
+    def get_log_prob(self):
+        return self.dist.log_prob(self.action)
 
 class DecoreLayer:
     # Rewards for right and wrong predicitons. 
     REWARD_RIGHT =  1
-    REWARD_WRONG = -10
+    REWARD_WRONG = -4
 
     def __init__(self, module:nn.Module, module_name: str, agents: list):
         self.module      = module
@@ -31,17 +36,18 @@ class DecoreLayer:
 
     def layer_policy(self):
         mask  = []
-        probs = []
+        log_probs = []
 
         for agent in self.agents:
-            action, prob = agent.policy()
+            action   = agent.policy()
+            log_prob = agent.get_log_prob()
             mask.append(action)
-            probs.append(prob)
+            log_probs.append(log_prob)
         
         
-        self.layer_mask  = torch.tensor(mask)
-        self.layer_probs = torch.tensor(probs)
-        return self.layer_mask, self.layer_probs
+        self.layer_mask      = torch.tensor(mask)
+        self.layer_log_probs = torch.tensor(log_probs)
+        return self.layer_mask, self.layer_log_probs
 
     def layer_reward(self, predictionWasCorrect:bool):
         droppedChannels = 0

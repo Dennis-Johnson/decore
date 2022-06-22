@@ -43,7 +43,6 @@ for mod_name, module in network.named_modules():
       break
 
     # Initialise agents for each channel in each layer.
-    # TODO: Why do I get NaN reward after the FC layer?
     if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
       agents = [DecoreAgent(layer_num, channel_num, init_weight=6.9) for channel_num in range(module.weight.shape[0])]
 
@@ -92,11 +91,11 @@ for epoch in range(1, n_epochs + 1):
 
     #### Update RL agent weights.
     for layer in layers:
-      mask_, probs = layer.layer_mask, layer.layer_probs
+      mask_, log_probs = layer.layer_mask, layer.layer_log_probs
 
       for prediction in predictions:
         reward = layer.layer_reward(prediction)
-        loss = torch.add(loss, -1 * torch.prod(torch.log(probs)) * reward) 
+        loss = torch.add(loss, -1 * torch.sum(log_probs) * reward) 
       loss = torch.div(loss, len(predictions))
       print(f"RL Loss: {loss}")
 
