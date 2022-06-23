@@ -14,8 +14,8 @@ class DecoreAgent:
         self.policy()
 
     def policy(self):
-        self.logits = torch.sigmoid(self.weight)
-        self.dist   = dist.Bernoulli(logits = self.logits)
+        self.prob   = torch.sigmoid(self.weight)
+        self.dist   = dist.Bernoulli(probs = self.prob)
         self.action = torch.tensor(self.dist.sample().item())
         return self.action
     

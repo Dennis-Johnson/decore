@@ -4,11 +4,11 @@ def get_dataloaders(batch_size_train=64, batch_size_test=1000):
     transforms = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize(
-            (0.1307,), (0.3081,))
+            (0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
     ])
 
     train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST(
+    torchvision.datasets.CIFAR10(
         './datasets/', 
         train = True,
         download = True,
@@ -18,7 +18,7 @@ def get_dataloaders(batch_size_train=64, batch_size_test=1000):
     )
 
     test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST(
+    torchvision.datasets.CIFAR10(
         './datasets/',
         train = False,
         download = True,
